@@ -163,7 +163,7 @@ Saves credentials interactively during a conversation turn.
     "success": true,
     "platform": "instagram",
     "configured_keys": ["session_id"],
-    "message": "Credenziali per instagram configurate con successo!"
+    "message": "Credentials for instagram configured successfully!"
   }
   ```
 

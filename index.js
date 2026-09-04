@@ -23,8 +23,8 @@ const SEARXNG_URL = process.env.SEARXNG_URL || 'http://searxng:8080';
 const TWITTER_CLI = process.env.TWITTER_CLI_PATH || '/home/node/.local/bin/twitter';
 
 /**
- * Carica le credenziali: legge prima le variabili d'ambiente (.env / runtime container),
- * poi esegue il fallback sul file di configurazione locale se presente.
+ * Loads credentials: reads environment variables first (.env / container runtime),
+ * then falls back to local configuration file if present.
  */
 async function loadCredentials() {
   let creds = {};
@@ -37,13 +37,13 @@ async function loadCredentials() {
   if (!creds.instagram) creds.instagram = {};
   if (!creds.reddit) creds.reddit = {};
 
-  // Priorità assoluta alle variabili d'ambiente (12-factor / container .env)
+  // High priority to environment variables (12-factor / container .env)
   if (process.env.TWITTER_AUTH_TOKEN) creds.twitter.auth_token = process.env.TWITTER_AUTH_TOKEN;
   if (process.env.TWITTER_CT0) creds.twitter.ct0 = process.env.TWITTER_CT0;
   if (process.env.INSTAGRAM_SESSION_ID) creds.instagram.session_id = process.env.INSTAGRAM_SESSION_ID;
   if (process.env.REDDIT_SESSION_ID) creds.reddit.session_id = process.env.REDDIT_SESSION_ID;
 
-  // Sincronizza su process.env per CLI e librerie a valle
+  // Sync to process.env for downstream CLI and libraries
   if (creds.twitter?.auth_token) process.env.TWITTER_AUTH_TOKEN = creds.twitter.auth_token;
   if (creds.twitter?.ct0) process.env.TWITTER_CT0 = creds.twitter.ct0;
   if (creds.instagram?.session_id) process.env.INSTAGRAM_SESSION_ID = creds.instagram.session_id;
@@ -53,7 +53,7 @@ async function loadCredentials() {
 }
 
 /**
- * Salva le credenziali su disco, aggiorna il file YAML di agent-reach e imposta process.env
+ * Persists credentials to disk, updates agent-reach YAML file and sets process.env
  */
 async function saveCredentials(creds) {
   await fs.mkdir(path.dirname(CREDENTIALS_FILE), { recursive: true });
@@ -64,7 +64,7 @@ async function saveCredentials(creds) {
   if (creds.instagram?.session_id) process.env.INSTAGRAM_SESSION_ID = creds.instagram.session_id;
   if (creds.reddit?.session_id) process.env.REDDIT_SESSION_ID = creds.reddit.session_id;
 
-  // Sincronizza anche su ~/.agent-reach/config.yaml
+  // Also sync to ~/.agent-reach/config.yaml
   try {
     await fs.mkdir(path.dirname(AGENT_REACH_CONFIG), { recursive: true });
     const yamlLines = ['# Agent Reach Credentials synced from DSH Plugin'];
@@ -76,13 +76,13 @@ async function saveCredentials(creds) {
 }
 
 /**
- * Parsing euristico da stringa Cookie raw (es. esportata da Cookie-Editor o DevTools)
+ * Heuristic parsing from raw cookie string (e.g. exported from Cookie-Editor or DevTools)
  */
 function parseRawCookieString(rawStr) {
   const result = {};
   if (!rawStr || typeof rawStr !== 'string') return result;
 
-  // Se è un export JSON da Cookie-Editor
+  // JSON export from Cookie-Editor
   if (rawStr.trim().startsWith('[') || rawStr.trim().startsWith('{')) {
     try {
       const parsed = JSON.parse(rawStr);
@@ -96,7 +96,7 @@ function parseRawCookieString(rawStr) {
     } catch {}
   }
 
-  // Se è formato standard "cookie1=val1; cookie2=val2"
+  // Standard "cookie1=val1; cookie2=val2" format
   const pairs = rawStr.split(';');
   for (const pair of pairs) {
     const idx = pair.indexOf('=');
@@ -110,7 +110,7 @@ function parseRawCookieString(rawStr) {
 }
 
 /**
- * Scraping pulito via Jina Reader (https://r.jina.ai/<url>)
+ * Clean scraping via Jina Reader (https://r.jina.ai/<url>)
  */
 async function scrapeViaJina(targetUrl, signal) {
   const jinaEndpoint = `https://r.jina.ai/${targetUrl}`;
@@ -134,7 +134,7 @@ async function scrapeViaJina(targetUrl, signal) {
 }
 
 /**
- * Ricerca OSINT su SearXNG interno
+ * Internal SearXNG OSINT search
  */
 async function searchSearxng(query, signal) {
   const url = new URL('/search', SEARXNG_URL);
@@ -158,7 +158,7 @@ async function searchSearxng(query, signal) {
 }
 
 /**
- * Scraping Instagram: se autenticato usa API Instagram con sessionid, altrimenti SearXNG OSINT
+ * Instagram scraping: uses Instagram API with sessionid if authenticated, otherwise SearXNG OSINT fallback
  */
 async function scrapeInstagram(username, creds, signal) {
   const cleanUser = username.replace(/^@/, '').trim();
@@ -213,32 +213,32 @@ async function scrapeInstagram(username, creds, signal) {
     } catch (e) {}
   }
 
-  // Fallback OSINT passivo se non autenticato o errore
+  // Passive OSINT fallback if unauthenticated or on error
   const osintResults = await searchSearxng(`site:instagram.com/${cleanUser} OR "instagram.com/${cleanUser}"`, signal);
   return {
     status: sessionId ? 'AUTHENTICATION_EXPIRED' : 'UNAUTHENTICATED_PASSIVE',
     platform: 'instagram',
     username: cleanUser,
     message: sessionId
-      ? 'La sessione Instagram configurata è scaduta o non valida.'
-      : 'Accesso anonimo limitato dalle policy anti-bot di Instagram. Sono stati recuperati i dati pubblici indicizzati tramite OSINT.',
+      ? 'Configured Instagram session has expired or is invalid.'
+      : 'Anonymous access restricted by Instagram anti-bot policies. Public indexed data retrieved via OSINT.',
     osint_results: osintResults,
     interactive_prompt_guidance: [
-      `[GUIDA CONFIGURAZIONE INTERATTIVA INSTAGRAM]`,
-      `Per estrarre il profilo completo, le storie e tutti i post recenti di @${cleanUser}, è necessario il cookie di sessione.`,
-      `Chiedi all'utente:`,
-      `"Per accedere ai post recenti completi di Instagram dal runtime, è necessario il cookie di sessione dal tuo browser (Chrome, Firefox, Safari, Edge, Arc).`,
-      `Come ottenerlo in pochi secondi:`,
-      `1. Apri Instagram nel browser e apri gli Strumenti per sviluppatori (F12 o Ctrl+Shift+I / Cmd+Opzione+I).`,
-      `2. Vai nella scheda 'Applicazione' (o 'Storage') -> 'Cookie' -> 'https://www.instagram.com'.`,
-      `3. Copia il valore del cookie 'sessionid' e incollalo qui in chat."`,
-      `Non appena l'utente te lo incolla, usa il tool reach_configure_credentials({ platform: 'instagram', session_id: '...' }) per attivarlo all'istante.`
+      `[INSTAGRAM INTERACTIVE CONFIGURATION GUIDE]`,
+      `To extract the full profile, stories, and all recent posts of @${cleanUser}, a session cookie is required.`,
+      `Prompt the user:`,
+      `"To access full recent Instagram posts from the runtime, a session cookie from your browser (Chrome, Firefox, Safari, Edge, Arc) is needed.`,
+      `How to obtain it in seconds:`,
+      `1. Open instagram.com in your browser and open Developer Tools (F12 or Ctrl+Shift+I / Cmd+Opt+I).`,
+      `2. Navigate to 'Application' (or 'Storage') -> 'Cookies' -> 'https://www.instagram.com'.`,
+      `3. Copy the value of the 'sessionid' cookie and paste it here in chat."`,
+      `As soon as the user provides it, invoke reach_configure_credentials({ platform: 'instagram', session_id: '...' }) to activate it instantly.`
     ].join('\n')
   };
 }
 
 /**
- * Scraping Twitter/X: se autenticato usa twitter-cli, altrimenti SearXNG OSINT
+ * Twitter/X scraping: uses twitter-cli if authenticated, otherwise SearXNG OSINT fallback
  */
 async function scrapeTwitter(target, action = 'user-posts', creds, signal) {
   const cleanUser = target.replace(/^@/, '').trim();
@@ -264,30 +264,30 @@ async function scrapeTwitter(target, action = 'user-posts', creds, signal) {
         output: stdout
       };
     } catch (err) {
-      // Fallback in caso di errore CLI
+      // Fallback on CLI error
     }
   }
 
-  // Fallback OSINT su SearXNG
+  // OSINT fallback on SearXNG
   const osintResults = await searchSearxng(`site:x.com/${cleanUser} OR site:twitter.com/${cleanUser}`, signal);
   return {
     status: hasCreds ? 'AUTHENTICATION_FAILED' : 'UNAUTHENTICATED_PASSIVE',
     platform: 'twitter',
     target: cleanUser,
     message: hasCreds
-      ? 'Autenticazione Twitter non valida o rate limit raggiunto. Ho recuperato le ultime novità pubbliche via OSINT.'
-      : 'X/Twitter richiede autenticazione per leggere i feed degli utenti. Ho recuperato i post pubblici indicizzati via OSINT.',
+      ? 'Twitter authentication invalid or rate limit reached. Latest public updates retrieved via OSINT.'
+      : 'X/Twitter requires authentication to read user feeds. Public indexed posts retrieved via OSINT.',
     osint_results: osintResults,
     interactive_prompt_guidance: [
-      `[GUIDA CONFIGURAZIONE INTERATTIVA TWITTER/X]`,
-      `Per consentire a twitter-cli di leggere l'intero feed e i tweet di @${cleanUser}, sono necessari i cookie auth_token e ct0.`,
-      `Chiedi all'utente:`,
-      `"Per leggere direttamente i tweet di @${cleanUser}, puoi fornirmi i cookie di sessione di X/Twitter dal tuo browser?`,
-      `Come ottenerli:`,
-      `1. Apri x.com nel browser e apri gli Strumenti per sviluppatori (F12 o Ctrl+Shift+I / Cmd+Opzione+I).`,
-      `2. Scheda 'Applicazione' / 'Storage' -> 'Cookie' -> 'https://x.com'.`,
-      `3. Copia i valori di 'auth_token' e 'ct0' e incollali qui in chat."`,
-      `Una volta ricevuti, usa reach_configure_credentials({ platform: 'twitter', auth_token: '...', ct0: '...' }).`
+      `[TWITTER/X INTERACTIVE CONFIGURATION GUIDE]`,
+      `To allow twitter-cli to read the complete feed and tweets of @${cleanUser}, auth_token and ct0 cookies are required.`,
+      `Prompt the user:`,
+      `"To read tweets directly from @${cleanUser}, could you provide your X/Twitter session cookies from your browser?`,
+      `How to obtain them:`,
+      `1. Open x.com in your browser and open Developer Tools (F12 or Ctrl+Shift+I / Cmd+Opt+I).`,
+      `2. Tab 'Application' / 'Storage' -> 'Cookies' -> 'https://x.com'.`,
+      `3. Copy the values of 'auth_token' and 'ct0' and paste them here in chat."`,
+      `Once received, invoke reach_configure_credentials({ platform: 'twitter', auth_token: '...', ct0: '...' }).`
     ].join('\n')
   };
 }
@@ -296,19 +296,19 @@ export const name = 'agent-reach';
 export const inject = ['tools', 'systemPrompt'];
 
 export function apply(ctx) {
-  // Sincronizza credenziali all'avvio
+  // Synchronize credentials on startup
   loadCredentials().catch(() => {});
 
   if (!ctx.tools || typeof ctx.tools.register !== 'function') return;
 
   // --------------------------------------------------------------------------
-  // TOOL 1: reach_web_scrape (Scraping universale con Jina Reader)
+  // TOOL 1: reach_web_scrape (Universal scraping with Jina Reader)
   // --------------------------------------------------------------------------
   ctx.tools.register({
     name: 'reach_web_scrape',
-    description: 'Esegue lo scraping pulito in Markdown di qualsiasi pagina web (articoli, blog, siti di documentazione, forum) tramite Jina Reader (r.jina.ai), superando banner cookie e paywall leggeri.',
+    description: 'Performs clean Markdown scraping of any web page (articles, blogs, documentation sites, forums) using Jina Reader (r.jina.ai), bypassing cookie banners and light paywalls.',
     parameters: {
-      url: { type: 'string', required: true, description: 'URL completo della pagina web da acquisire (es. https://antirez.com)' }
+      url: { type: 'string', required: true, description: 'Full URL of the web page to acquire (e.g. https://antirez.com)' }
     },
     output: {
       schema: {
@@ -333,26 +333,26 @@ export function apply(ctx) {
   });
 
   // --------------------------------------------------------------------------
-  // TOOL 2: reach_social_search (Social Intelligence per X, Instagram, Reddit, ecc.)
+  // TOOL 2: reach_social_search (Social Intelligence for X, Instagram, Reddit, etc.)
   // --------------------------------------------------------------------------
   ctx.tools.register({
     name: 'reach_social_search',
-    description: 'Cerca e analizza profili e novità dai social network (Instagram, Twitter/X, Reddit, YouTube, GitHub, V2EX). Se autenticato recupera i dati completi dai backend ufficiali; se non autenticato sfrutta l\'OSINT syndication di SearXNG e fornisce la guida per la configurazione interattiva del cookie.',
+    description: 'Searches and analyzes profiles and news across social networks (Instagram, Twitter/X, Reddit, YouTube, GitHub, V2EX). If authenticated, retrieves full data from official backends; if unauthenticated, leverages SearXNG OSINT syndication and provides interactive cookie configuration guidance.',
     parameters: {
       platform: {
         type: 'string',
         required: true,
-        description: 'Piattaforma target: "twitter" | "instagram" | "reddit" | "youtube" | "github" | "v2ex"'
+        description: 'Target platform: "twitter" | "instagram" | "reddit" | "youtube" | "github" | "v2ex"'
       },
       target: {
         type: 'string',
         required: true,
-        description: 'Nome utente (@username), topic o query di ricerca'
+        description: 'Username (@username), topic, or search query'
       },
       action: {
         type: 'string',
         required: false,
-        description: 'Azione desiderata: "profile" (profilo bio/stats) o "feed" (ultimi post)'
+        description: 'Desired action: "profile" (bio/stats) or "feed" (recent posts)'
       }
     },
     output: {
@@ -401,7 +401,7 @@ export function apply(ctx) {
         };
       }
 
-      // Default generico OSINT
+      // Default generic OSINT
       const osint = await searchSearxng(`${args.platform} ${args.target}`, exec?.signal);
       return {
         status: 'SUCCESS',
@@ -413,36 +413,36 @@ export function apply(ctx) {
   });
 
   // --------------------------------------------------------------------------
-  // TOOL 3: reach_configure_credentials (Configurazione Interattiva Credenziali)
+  // TOOL 3: reach_configure_credentials (Interactive Credential Configuration)
   // --------------------------------------------------------------------------
   ctx.tools.register({
     name: 'reach_configure_credentials',
-    description: 'Permette di configurare interattivamente i cookie o i token di sessione per le piattaforme social (Twitter/X, Instagram, Reddit). Invocare quando l\'utente fornisce i valori di sessionid o auth_token in chat o incolla una stringa cookie.',
+    description: 'Allows interactive configuration of cookies or session tokens for social platforms (Twitter/X, Instagram, Reddit). Invoke when user provides sessionid or auth_token values in chat or pastes a cookie string.',
     parameters: {
       platform: {
         type: 'string',
         required: true,
-        description: 'Piattaforma da configurare: "twitter" | "instagram" | "reddit" | "generic"'
+        description: 'Target platform: "twitter" | "instagram" | "reddit" | "generic"'
       },
       session_id: {
         type: 'string',
         required: false,
-        description: 'Valore del cookie sessionid (per Instagram o Reddit)'
+        description: 'sessionid cookie value (for Instagram or Reddit)'
       },
       auth_token: {
         type: 'string',
         required: false,
-        description: 'Valore del cookie auth_token (per Twitter/X)'
+        description: 'auth_token cookie value (for Twitter/X)'
       },
       ct0: {
         type: 'string',
         required: false,
-        description: 'Valore del cookie ct0 (CSRF token per Twitter/X)'
+        description: 'ct0 cookie value (CSRF token for Twitter/X)'
       },
       cookie_string: {
         type: 'string',
         required: false,
-        description: 'Stringa Cookie grezza copiata dal browser o JSON da Cookie-Editor'
+        description: 'Raw cookie string copied from browser or JSON from Cookie-Editor'
       }
     },
     output: {
@@ -473,7 +473,7 @@ export function apply(ctx) {
           return {
             success: false,
             platform: 'instagram',
-            message: 'Nessun cookie "sessionid" valido trovato nei dati forniti.'
+            message: 'No valid "sessionid" cookie found in provided data.'
           };
         }
         creds.instagram = {
@@ -488,7 +488,7 @@ export function apply(ctx) {
           return {
             success: false,
             platform: 'twitter',
-            message: 'Nessun cookie "auth_token" trovato nei dati forniti.'
+            message: 'No "auth_token" cookie found in provided data.'
           };
         }
         creds.twitter = {
@@ -513,17 +513,17 @@ export function apply(ctx) {
         success: true,
         platform: plat,
         configured_keys: keysConfigured,
-        message: `Credenziali per ${plat} configurate con successo! Le future richieste utilizzeranno questa sessione autenticata.`
+        message: `Credentials for ${plat} configured successfully! Subsequent requests will utilize this authenticated session.`
       };
     }
   });
 
   // --------------------------------------------------------------------------
-  // TOOL 4: reach_status (Stato e diagnostica dei canali OSINT)
+  // TOOL 4: reach_status (Status and Diagnostics for OSINT Channels)
   // --------------------------------------------------------------------------
   ctx.tools.register({
     name: 'reach_status',
-    description: 'Verifica lo stato di attivazione e la presenza di credenziali per tutte le piattaforme OSINT supportate da Agent-Reach.',
+    description: 'Verifies activation state and presence of credentials for all OSINT platforms supported by Agent-Reach.',
     parameters: {},
     output: {
       schema: {
@@ -553,7 +553,7 @@ export function apply(ctx) {
   });
 
   // --------------------------------------------------------------------------
-  // SYSTEM PROMPT SECTION: Direttive per l'Agente su Agent-Reach
+  // SYSTEM PROMPT SECTION: Directives for Agent-Reach
   // --------------------------------------------------------------------------
   ctx.inject(['systemPrompt'], (promptCtx) => {
     if (!promptCtx.systemPrompt || typeof promptCtx.systemPrompt.section !== 'function') return;
@@ -563,15 +563,15 @@ export function apply(ctx) {
         order: 15,
         text: [
           '## AGENT-REACH — WEB OSINT & SOCIAL INTELLIGENCE DIRECTIVES',
-          'Hai a disposizione gli strumenti nativi di Agent-Reach per la ricerca OSINT e lo scraping:',
-          '1. Per articoli, documentazione o pagine web pubbliche: usa sempre il tool "reach_web_scrape".',
-          '2. Per ricerche su social media (Instagram, Twitter/X, Reddit, YouTube): usa sempre il tool "reach_social_search".',
-          '3. INTERACTIVE CREDENTIAL FLOW: Se "reach_social_search" restituisce uno stato "UNAUTHENTICATED_PASSIVE" o "interactive_prompt_guidance":',
-          '   - Presenta all\'utente i risultati OSINT pubblici già trovati.',
-          '   - Spiega con chiarezza e cortesia che il runtime dell\'agente non ha accesso ai cookie dei browser dell\'utente (Chrome, Firefox, Safari, Edge).',
-          '   - Chiedi all\'utente se desidera fornire il cookie di sessione (ad es. "sessionid" per Instagram o "auth_token" per X).',
-          '   - Quando l\'utente ti incolla il valore o la stringa cookie, usa IMMEDIATAMENTE il tool "reach_configure_credentials" per salvarlo.',
-          '   - Una volta salvato, riesegui la ricerca con "reach_social_search" per ottenere il feed completo e aggiornato!'
+          'You have native Agent-Reach tools available for web scraping and OSINT discovery:',
+          '1. For articles, documentation, or public web pages: always use tool "reach_web_scrape".',
+          '2. For social media queries (Instagram, Twitter/X, Reddit, YouTube): always use tool "reach_social_search".',
+          '3. INTERACTIVE CREDENTIAL FLOW: If "reach_social_search" returns "UNAUTHENTICATED_PASSIVE" or "interactive_prompt_guidance":',
+          '   - Present the found public OSINT results to the user.',
+          '   - Politely explain that the agent runtime cannot access user browser cookies (Chrome, Firefox, Safari, Edge).',
+          '   - Ask if the user would like to supply the session cookie (e.g., "sessionid" for Instagram or "auth_token" for X).',
+          '   - When the user pastes the cookie value or cookie string, IMMEDIATELY invoke tool "reach_configure_credentials" to store it.',
+          '   - Once saved, re-run "reach_social_search" to retrieve the complete, up-to-date live feed!'
         ].join('\n')
       });
     } catch {}
