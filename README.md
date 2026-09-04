@@ -51,9 +51,17 @@ Running agentic environments inside Docker containers or sandboxes presents a co
 
 1. **Clean Web Layer (Jina Reader Engine)**: Strips ads, cookie banners, tracking scripts, and navigation clutter, serving structured GitHub-Flavored Markdown directly to the model's context.
 2. **Direct Authenticated Backends**: When credentials exist, requests route to official/internal endpoints (such as `twitter-cli` or Instagram private profile APIs) with authentic headers.
-3. **Passive OSINT Fallback & Interactive Handshake**: When unauthenticated, the plugin queries local SearXNG search instances for indexed public snippets and instructs the model to request session cookies interactively if deep feeds are needed.
+3. **Passive OSINT Fallback & Local Secret Protocol**: When unauthenticated, the plugin queries local SearXNG search instances for indexed public snippets. For authenticated access, credentials must be passed via local `.env` or disk storage, never pasted into chat prompts.
 
 ---
+
+## 🛡️ Security & OPSEC Notice
+
+> [!IMPORTANT]
+> **Never transmit active authentication tokens or session cookies in conversational chat prompts.**
+> - Pasting raw session cookies (`sessionid`, `auth_token`, `ct0`) into an LLM chat prompt risks leaking them to third-party model providers, external API logs, or persistent conversation transcripts.
+> - Always supply credentials through standard 12-factor environment variables (`.env` file) or place them directly into `.dsh/social_credentials.json` on your host filesystem.
+> - The plugin never logs raw token values to stdout; status endpoints return masked indicators (`CONFIGURED` / `UNAUTHENTICATED`).
 
 ## 🚀 Key Features
 

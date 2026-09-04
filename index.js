@@ -224,15 +224,10 @@ async function scrapeInstagram(username, creds, signal) {
       : 'Anonymous access restricted by Instagram anti-bot policies. Public indexed data retrieved via OSINT.',
     osint_results: osintResults,
     interactive_prompt_guidance: [
-      `[INSTAGRAM INTERACTIVE CONFIGURATION GUIDE]`,
-      `To extract the full profile, stories, and all recent posts of @${cleanUser}, a session cookie is required.`,
-      `Prompt the user:`,
-      `"To access full recent Instagram posts from the runtime, a session cookie from your browser (Chrome, Firefox, Safari, Edge, Arc) is needed.`,
-      `How to obtain it in seconds:`,
-      `1. Open instagram.com in your browser and open Developer Tools (F12 or Ctrl+Shift+I / Cmd+Opt+I).`,
-      `2. Navigate to 'Application' (or 'Storage') -> 'Cookies' -> 'https://www.instagram.com'.`,
-      `3. Copy the value of the 'sessionid' cookie and paste it here in chat."`,
-      `As soon as the user provides it, invoke reach_configure_credentials({ platform: 'instagram', session_id: '...' }) to activate it instantly.`
+      `[INSTAGRAM AUTHENTICATION GUIDANCE]`,
+      `Anonymous access restricted by Instagram anti-bot policies. Public indexed data retrieved via OSINT.`,
+      `SECURITY NOTICE: For OPSEC safety, never request or transmit sensitive session cookies in LLM chat prompts.`,
+      `To enable authenticated scraping, instruct the user to configure INSTAGRAM_SESSION_ID in their host .env file or save it directly into .dsh/social_credentials.json on disk.`
     ].join('\n')
   };
 }
@@ -279,15 +274,10 @@ async function scrapeTwitter(target, action = 'user-posts', creds, signal) {
       : 'X/Twitter requires authentication to read user feeds. Public indexed posts retrieved via OSINT.',
     osint_results: osintResults,
     interactive_prompt_guidance: [
-      `[TWITTER/X INTERACTIVE CONFIGURATION GUIDE]`,
-      `To allow twitter-cli to read the complete feed and tweets of @${cleanUser}, auth_token and ct0 cookies are required.`,
-      `Prompt the user:`,
-      `"To read tweets directly from @${cleanUser}, could you provide your X/Twitter session cookies from your browser?`,
-      `How to obtain them:`,
-      `1. Open x.com in your browser and open Developer Tools (F12 or Ctrl+Shift+I / Cmd+Opt+I).`,
-      `2. Tab 'Application' / 'Storage' -> 'Cookies' -> 'https://x.com'.`,
-      `3. Copy the values of 'auth_token' and 'ct0' and paste them here in chat."`,
-      `Once received, invoke reach_configure_credentials({ platform: 'twitter', auth_token: '...', ct0: '...' }).`
+      `[TWITTER/X AUTHENTICATION GUIDANCE]`,
+      `X/Twitter requires authentication to read user feeds. Public indexed posts retrieved via OSINT.`,
+      `SECURITY NOTICE: For OPSEC safety, never request or transmit sensitive auth_token or ct0 credentials in LLM chat prompts.`,
+      `To enable authenticated scraping, instruct the user to configure TWITTER_AUTH_TOKEN and TWITTER_CT0 in their host .env file or save them directly into .dsh/social_credentials.json on disk.`
     ].join('\n')
   };
 }
@@ -566,12 +556,11 @@ export function apply(ctx) {
           'You have native Agent-Reach tools available for web scraping and OSINT discovery:',
           '1. For articles, documentation, or public web pages: always use tool "reach_web_scrape".',
           '2. For social media queries (Instagram, Twitter/X, Reddit, YouTube): always use tool "reach_social_search".',
-          '3. INTERACTIVE CREDENTIAL FLOW: If "reach_social_search" returns "UNAUTHENTICATED_PASSIVE" or "interactive_prompt_guidance":',
-          '   - Present the found public OSINT results to the user.',
-          '   - Politely explain that the agent runtime cannot access user browser cookies (Chrome, Firefox, Safari, Edge).',
-          '   - Ask if the user would like to supply the session cookie (e.g., "sessionid" for Instagram or "auth_token" for X).',
-          '   - When the user pastes the cookie value or cookie string, IMMEDIATELY invoke tool "reach_configure_credentials" to store it.',
-          '   - Once saved, re-run "reach_social_search" to retrieve the complete, up-to-date live feed!'
+          '3. OPSEC CREDENTIAL PROTOCOL: If "reach_social_search" returns "UNAUTHENTICATED_PASSIVE":',
+          '   - Present the retrieved public OSINT results to the user.',
+          '   - NEVER ask the user to paste session cookies or authentication tokens into this chat prompt.',
+          '   - Inform the user that credentials should be placed in the local .env file (TWITTER_AUTH_TOKEN, INSTAGRAM_SESSION_ID) or directly in .dsh/social_credentials.json on the host filesystem.',
+          '   - When credentials are present in the environment, "reach_social_search" will automatically utilize the authenticated session.'
         ].join('\n')
       });
     } catch {}
