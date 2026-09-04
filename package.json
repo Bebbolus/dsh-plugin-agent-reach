@@ -4,14 +4,29 @@
   "description": "Agent-Reach OSINT, Web Scraping and Social Media Intelligence Plugin for DeepSeek Harness (DSH)",
   "main": "index.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bebbolus/dsh-plugin-agent-reach.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Bebbolus/dsh-plugin-agent-reach/issues"
+  },
+  "homepage": "https://github.com/Bebbolus/dsh-plugin-agent-reach#readme",
   "keywords": [
     "dsh-plugin",
     "cordis",
     "agent-reach",
     "osint",
     "social-intelligence",
-    "jina-reader"
+    "jina-reader",
+    "deepseek-harness"
   ],
-  "author": "Antigravity",
+  "author": "Bebbolus",
   "license": "MIT"
 }
