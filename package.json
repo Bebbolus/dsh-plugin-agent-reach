@@ -1,0 +1,17 @@
+{
+  "name": "dsh-plugin-agent-reach",
+  "version": "1.0.0",
+  "description": "Agent-Reach OSINT, Web Scraping and Social Media Intelligence Plugin for DeepSeek Harness (DSH)",
+  "main": "index.js",
+  "type": "module",
+  "keywords": [
+    "dsh-plugin",
+    "cordis",
+    "agent-reach",
+    "osint",
+    "social-intelligence",
+    "jina-reader"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
