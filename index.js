@@ -22,6 +22,11 @@ const AGENT_REACH_CONFIG = process.env.AGENT_REACH_CONFIG || '/home/node/.agent-
 const SEARXNG_URL = process.env.SEARXNG_URL || 'http://searxng:8080';
 const TWITTER_CLI = process.env.TWITTER_CLI_PATH || '/home/node/.local/bin/twitter';
 
+function formatOutputContent(_args, value) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  return [{ type: 'text', text }];
+}
+
 /**
  * Loads credentials: reads environment variables first (.env / container runtime),
  * then falls back to local configuration file if present.
@@ -310,7 +315,7 @@ export function apply(ctx) {
           error: { type: 'string' }
         }
       },
-      render: (v) => v.markdown || v.error || JSON.stringify(v)
+      render: (_args, v) => [{ type: 'text', text: v?.markdown || v?.error || JSON.stringify(v) }]
     },
     execute: async (args, exec) => {
       try {
@@ -354,7 +359,7 @@ export function apply(ctx) {
           result: { type: 'object' }
         }
       },
-      render: (v) => JSON.stringify(v, null, 2)
+      render: formatOutputContent
     },
     execute: async (args, exec) => {
       const creds = await loadCredentials();
@@ -445,7 +450,7 @@ export function apply(ctx) {
           message: { type: 'string' }
         }
       },
-      render: (v) => JSON.stringify(v, null, 2)
+      render: formatOutputContent
     },
     execute: async (args) => {
       const creds = await loadCredentials();
@@ -527,7 +532,7 @@ export function apply(ctx) {
           youtube: { type: 'string' }
         }
       },
-      render: (v) => JSON.stringify(v, null, 2)
+      render: formatOutputContent
     },
     execute: async () => {
       const creds = await loadCredentials();
